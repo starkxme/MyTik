@@ -1,6 +1,7 @@
 import logging
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.ext import Application, CommandHandler, MessageHandler
+from telegram.ext import filters
 from TikTokApi import TikTokApi
 import requests
 
@@ -21,43 +22,52 @@ def download_tiktok_video(url: str):
         return None
 
 # Command handler for start
-def start(update: Update, context):
-    update.message.reply_text("Welcome! Send me a TikTok video URL to download the video.")
+async def start(update: Update, context):
+    await update.message.reply_text("Welcome! Send me a TikTok video URL to download the video.")
 
 # Handler for message with TikTok URL
-def handle_message(update: Update, context):
+async def handle_message(update: Update, context):
     url = update.message.text.strip()
     if 'tiktok.com' in url:
         video_bytes = download_tiktok_video(url)
         if video_bytes:
-            update.message.reply_video(video=video_bytes)
+            await update.message.reply_video(video=video_bytes)
         else:
-            update.message.reply_text("Sorry, I couldn't download the video. Try again later.")
+            await update.message.reply_text("Sorry, I couldn't download the video. Try again later.")
     else:
-        update.message.reply_text("Please send a valid TikTok URL.")
+        await update.message.reply_text("Please send a valid TikTok URL.")
 
 # Error handler
 def error(update: Update, context):
     logger.warning(f'Update {update} caused error {context.error}')
 
-def main():
+# Main function
+async def main():
     # Replace with your bot's token from BotFather
     token = '8155781106:AAEBzXLXHn0kB_mhvVmBYg1z_BYtT3G3lRI'
     
-    # Set up the Updater and Dispatcher
-    updater = Updater(token, use_context=True)
-    dispatcher = updater.dispatcher
+    # Set up the Application and Dispatcher
+    application = Application.builder().token(token).build()
     
     # Add handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Log all errors
-    dispatcher.add_error_handler(error)
+    application.add_error_handler(error)
     
     # Start polling for updates
-    updater.start_polling()
-    updater.idle()
+    await application.run_polling()
 
+# Check if the script is being run directly
 if __name__ == '__main__':
-    main()
+    import sys
+    if sys.version_info >= (3, 7):
+        # If in a normal script, run the event loop
+        import asyncio
+        asyncio.run(main())
+    else:
+        # For versions below Python 3.7 (rare), run the event loop manually
+        import asyncio
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
